@@ -16,12 +16,6 @@
 Adafruit_SSD1306 display(128, 64, &Wire1, OLED_RST);
 SX1262 radio = new Module(LORA_NSS, LORA_DIO1, LORA_NRST, LORA_BUSY);
 
-// ==========================================
-// VARIABLES DE TIMEOUT DE RED
-// ==========================================
-unsigned long ultimo_paquete = 0;
-const unsigned long TIMEOUT_LORA = 5000; // 5 segundos de silencio = aire limpio
-
 void setup() {
   Serial.begin(115200);
   delay(3000); 
@@ -37,42 +31,22 @@ void setup() {
   display.setTextSize(1);
   display.setCursor(0,0);
   display.println("GATEWAY LISTO");
-  display.setCursor(0, 15);
-  display.println("Monitoreando red...");
   display.display();
 
-  if (radio.begin(915.0) == RADIOLIB_ERR_NONE) {
-    Serial.println("LoRa OK - Escuchando en 915 MHz");
-  }
+  radio.begin(915.0);
 }
 
 void loop() {
   String str;
-  int state = radio.receive(str);
-  
-  if (state == RADIOLIB_ERR_NONE) {
+  if (radio.receive(str) == RADIOLIB_ERR_NONE) {
     Serial.println(str); 
-    
-    // Guardamos el momento exacto en que llegó la alerta
-    ultimo_paquete = millis(); 
 
     display.clearDisplay();
     display.setCursor(0,0);
     display.setTextSize(1);
-    display.println("! ALERTA ACTIVA !");
+    display.println("! PAQUETE RECIBIDO !");
     display.setCursor(0, 15);
     display.println(str); 
     display.display();
   } 
-  
-  // Lógica de limpieza: Si pasaron más de 5 segundos desde la última alerta
-  if (millis() - ultimo_paquete > TIMEOUT_LORA) {
-    display.clearDisplay();
-    display.setCursor(0,0);
-    display.setTextSize(1);
-    display.println("GATEWAY LISTO");
-    display.setCursor(0, 15);
-    display.println("Monitoreando red...");
-    display.display();
-  }
 }
