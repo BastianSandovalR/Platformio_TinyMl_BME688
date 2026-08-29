@@ -6,16 +6,16 @@
 #include <Adafruit_SSD1306.h>
 #include <RadioLib.h>
 
-#define I2C_SDA_BME 4
-#define I2C_SCL_BME 5
-#define I2C_SDA_OLED 17
-#define I2C_SCL_OLED 18
-#define OLED_RST 21
+#define I2C_SDA_BME 4 // pin para conexion con sensor bosh
+#define I2C_SCL_BME 5  // pin para conexion con sensor bosh
+#define I2C_SDA_OLED 17 // pin para conexion con la patnalla oled 
+#define I2C_SCL_OLED 18 // pin para conexion con el pantalla oled
+#define OLED_RST 21 // pin para conexion con la patnalla oled
 #define VEXT_PIN 36
-#define LORA_NSS 8
-#define LORA_DIO1 14
-#define LORA_NRST 12
-#define LORA_BUSY 13
+#define LORA_NSS 8  // conexion lora
+#define LORA_DIO1 14 // conexion lora
+#define LORA_NRST 12 // conexion lora
+#define LORA_BUSY 13 // conexion lora
 
 Adafruit_BME680 bme; 
 Adafruit_SSD1306 display(128, 64, &Wire1, OLED_RST);
