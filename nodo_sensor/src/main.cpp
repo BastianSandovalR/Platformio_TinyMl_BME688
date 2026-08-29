@@ -21,6 +21,10 @@ Adafruit_BME680 bme;
 Adafruit_SSD1306 display(128, 64, &Wire1, OLED_RST);
 SX1262 radio = new Module(LORA_NSS, LORA_DIO1, LORA_NRST, LORA_BUSY);
 
+// Temporizador síncrono estricto para asegurar los 1.5 segundos exactos
+unsigned long tiempo_anterior = 0;
+const unsigned long INTERVALO_MUESTREO = 1500; 
+
 void setup() {
   Serial.begin(115200);
   delay(3000); 
@@ -41,38 +45,48 @@ void setup() {
     while (true);
   }
   
-  // Calentador simple: 320°C por solo 150ms
+  // Calentador fijo e ininterrumpido para la fase de captura del dataset
   bme.setGasHeater(320, 150); 
   delay(2000);
+
+  tiempo_anterior = millis();
 }
 
 void loop() {
-  if (!bme.performReading()) {
-    return;
+  unsigned long tiempo_actual = millis();
+
+  // Control determinista del tiempo: Solo ejecuta si pasaron exactamente 1.5s
+  if (tiempo_actual - tiempo_anterior >= INTERVALO_MUESTREO) {
+    tiempo_anterior = tiempo_actual;
+
+    if (!bme.performReading()) {
+      return;
+    }
+
+    // Captura de las 4 variables físicas
+    float temp = bme.temperature;
+    float hum = bme.humidity;
+    float pres = bme.pressure / 100.0; 
+    float gas_res = bme.gas_resistance;
+    
+    // Armamos el payload plano separado por comas
+    String payload = String(temp, 2) + "," + String(hum, 2) + "," + String(pres, 2) + "," + String(gas_res, 2);
+
+    // Transmitimos de forma síncrona
+    radio.transmit(payload);
+
+    // Actualización de la Pantalla OLED
+    display.clearDisplay();
+    display.setCursor(0,0);
+    display.setTextSize(1);
+    display.print("IgnisEdge Logger: 1.5s");
+    display.drawLine(0, 10, 128, 10, WHITE);
+    display.setCursor(0, 20);
+    display.print("Gas: "); 
+    display.print(gas_res / 1000.0, 1); display.println(" kOhms");
+    display.setCursor(0, 35);
+    display.print("Temp: "); display.print(temp, 1); display.println(" C");
+    display.print("Hum:  "); display.print(hum, 1);  display.println(" %");
+    display.display();
   }
-
-  // Capturamos los 4 datos
-  float temp = bme.temperature;
-  float hum = bme.humidity;
-  float pres = bme.pressure / 100.0; 
-  float gas_res = bme.gas_resistance;
-  
-  // Armamos el texto corto y ligero (2 decimales para precisión)
-  String payload = String(temp, 2) + "," + String(hum, 2) + "," + String(pres, 2) + "," + String(gas_res, 2);
-
-  // Transmitimos
-  radio.transmit(payload);
-
-  // Pantalla
-  display.clearDisplay();
-  display.setCursor(0,0);
-  display.setTextSize(1);
-  display.print("Lectura Simple OK");
-  display.drawLine(0, 10, 128, 10, WHITE);
-  display.setCursor(0, 20);
-  display.print("Gas: "); 
-  display.print(gas_res / 1000.0, 1); display.println(" kOhms");
-  display.display();
-  
-  delay(1000); 
 }
