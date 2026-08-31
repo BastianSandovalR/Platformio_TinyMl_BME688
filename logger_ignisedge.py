@@ -19,7 +19,8 @@ def iniciar_logger():
         archivo_existe = os.path.isfile(NOMBRE_ARCHIVO)
         
         # mode='a' es APPEND (agrega al final sin sobreescribir lo anterior)
-        with open(NOMBRE_ARCHIVO, mode='a', newline='') as file:
+        with open(NOMBRE_ARCHIVO, mode='a', newline='') as file: # se crea automaticamente si no encuentra el nombre del archivo,
+                                                                # si existe escribe desde la ultima linea guardada
             writer = csv.writer(file)
             
             # Solo escribimos el encabezado si el archivo es nuevo
@@ -50,14 +51,15 @@ def iniciar_logger():
                         
                         # Escribimos en el archivo y forzamos el guardado en el disco
                         writer.writerow(fila_csv)
-                        file.flush() 
-                        os.fsync(file.fileno())
+                        file.flush() # pasamos los datos al SO
+                        os.fsync(file.fileno()) #pasamos los datos al disco fisico
                         
                         print(f"Guardado OK: {fila_csv}")
                     else:
                         # Si llega basura del aire, la ignoramos sin detener el programa
                         print(f"[DEBUG] Dato descartado por formato: {linea}")
                         pass
+                time.sleep(0.01)
 
     except serial.SerialException as e:
         print(f"[!] Error de conexión: {e}")

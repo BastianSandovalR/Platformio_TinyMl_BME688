@@ -17,15 +17,15 @@ Adafruit_SSD1306 display(128, 64, &Wire1, OLED_RST);
 SX1262 radio = new Module(LORA_NSS, LORA_DIO1, LORA_NRST, LORA_BUSY);
 
 // Bandera lógica para indicar que llegó un paquete por hardware
-volatile bool paqueteRecibido = false;
+volatile bool paqueteRecibido = false; // Se utiliza Volatile para que se refresque el valor asociado en cada iteracion, el bool se guarda en en cpu o en cache,
+                                      //en cambio en Volatile se guarda en ram lo que obligamos a que sea temporal, 
+                                      // porque asi obligamos a que se lea la memoria ram fisica en cada iteracion del loop
 
-// Función de interrupción (ISR) - Debe ser lo más rápida posible
-#if defined(ESP8266) || defined(ESP32)
-  ICACHE_RAM_ATTR
-#endif
-void setFlag(void) {
-  paqueteRecibido = true;
+
+ICACHE_RAM_ATTR void setFlag(void) { //Especificamos que este en la IRAM la cual vive en la SRAM...
+  paqueteRecibido = true;            //...la IRAM es una memoria super rapida especificamente para dar instrucciones
 }
+
 
 void setup() {
   Serial.begin(115200);
@@ -55,7 +55,7 @@ void setup() {
   }
 
   // Configurar la función que se ejecutará cuando DIO1 pase a HIGH (Paquete recibido)
-  radio.setPacketReceivedAction(setFlag);
+  radio.setPacketReceivedAction(setFlag); // simula un eventlistener, esta atento a como esta el estado de la recepcion del mensaje, si es true o false
 
   // Iniciar la escucha asíncrona permanente (No bloquea el bucle loop)
   state = radio.startReceive();
@@ -72,6 +72,9 @@ void loop() {
 
     String str;
     int state = radio.readData(str); // Leemos el buffer de la radio
+                                    // Calcula el CRC (control de Redundancia Ciclica) la libreria verifica mediante un algoritmo matematico 
+                                    //si los bytes llegaron bien o corruptos
+
 
     if (state == RADIOLIB_ERR_NONE) {
       // Enviamos directo a tu script de Python en Fedora

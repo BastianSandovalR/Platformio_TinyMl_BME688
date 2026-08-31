@@ -6,12 +6,12 @@
 #include <Adafruit_SSD1306.h>
 #include <RadioLib.h>
 
-#define I2C_SDA_BME 4 // pin para conexion con sensor bosh
-#define I2C_SCL_BME 5  // pin para conexion con sensor bosh
-#define I2C_SDA_OLED 17 // pin para conexion con la patnalla oled 
-#define I2C_SCL_OLED 18 // pin para conexion con el pantalla oled
-#define OLED_RST 21 // pin para conexion con la patnalla oled
-#define VEXT_PIN 36
+#define I2C_SDA_BME 4 // pin DATOS con sensor bosh
+#define I2C_SCL_BME 5  // pin RELOJ conexion con sensor bosh
+#define I2C_SDA_OLED 17 // pin DATOS conexion con la patnalla oled 
+#define I2C_SCL_OLED 18 // pin RELOJ conexion con el pantalla oled
+#define OLED_RST 21 // pin RESET FISICO DE la patnalla oled
+#define VEXT_PIN 36 // pin CONTROL energia externa alimentar pantalla LED
 #define LORA_NSS 8  // conexion lora
 #define LORA_DIO1 14 // conexion lora
 #define LORA_NRST 12 // conexion lora
@@ -22,8 +22,10 @@ Adafruit_SSD1306 display(128, 64, &Wire1, OLED_RST);
 SX1262 radio = new Module(LORA_NSS, LORA_DIO1, LORA_NRST, LORA_BUSY);
 
 // Temporizador síncrono estricto para asegurar los 1.5 segundos exactos
-unsigned long tiempo_anterior = 0;
-const unsigned long INTERVALO_MUESTREO = 1500; 
+unsigned long tiempo_anterior = 0; // se usan de este tipo para que cuando este numero se llene por la cantidad de bits al hacer la resta no me de un numero negativo 
+                                  // y asi pueda ejecutarse el programa por anios
+
+const unsigned long INTERVALO_MUESTREO = 1500; // incrustamos el 1500 en la memoria flash, asi optimizamos nuestro codigo y que esa variable no ocupe espacio en la RAM
 
 void setup() {
   Serial.begin(115200);
@@ -49,7 +51,7 @@ void setup() {
   bme.setGasHeater(320, 150); 
   delay(2000);
 
-  tiempo_anterior = millis();
+  tiempo_anterior = millis(); // tiempo desde que se inicia el sistema, es como un odometro de los autos
 }
 void loop() {
   unsigned long tiempo_actual = millis();
