@@ -7,7 +7,7 @@ from datetime import datetime
 # --- CONFIGURACIÓN ---
 PUERTO_SERIAL = '/dev/ttyACM0' 
 BAUD_RATE = 115200
-NOMBRE_ARCHIVO = 'dataset_curanilahue_baseline.csv'
+NOMBRE_ARCHIVO = 'dataset_curanilahue_baseline_v2.csv'
 
 def iniciar_logger():   
     try:
@@ -56,6 +56,7 @@ def iniciar_logger():
                         print(f"Guardado OK: {fila_csv}")
                     else:
                         # Si llega basura del aire, la ignoramos sin detener el programa
+                        print(f"[DEBUG] Dato descartado por formato: {linea}")
                         pass
 
     except serial.SerialException as e:
