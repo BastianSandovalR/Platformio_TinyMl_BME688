@@ -37,7 +37,7 @@ void setup() {
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
   display.setTextColor(WHITE);
-  
+    
   radio.begin(915.0);
 
   Wire.begin(I2C_SDA_BME, I2C_SCL_BME);
@@ -51,31 +51,26 @@ void setup() {
 
   tiempo_anterior = millis();
 }
-
 void loop() {
   unsigned long tiempo_actual = millis();
 
-  // Control determinista del tiempo: Solo ejecuta si pasaron exactamente 1.5s
   if (tiempo_actual - tiempo_anterior >= INTERVALO_MUESTREO) {
     tiempo_anterior = tiempo_actual;
 
-    if (!bme.performReading()) {
-      return;
-    }
+    // 1. Pulso Táctico: 320 °C por 150 ms
+    bme.setGasHeater(320, 150);
+    if (!bme.performReading()) return;
 
-    // Captura de las 4 variables físicas
     float temp = bme.temperature;
     float hum = bme.humidity;
     float pres = bme.pressure / 100.0; 
     float gas_res = bme.gas_resistance;
     
-    // Armamos el payload plano separado por comas
+    // Transmisión inmediata vía LoRa (Bloqueante)
     String payload = String(temp, 2) + "," + String(hum, 2) + "," + String(pres, 2) + "," + String(gas_res, 2);
-
-    // Transmitimos de forma síncrona
     radio.transmit(payload);
 
-    // Actualización de la Pantalla OLED
+    // Actualización de la Pantalla OLED (Bloqueante)
     display.clearDisplay();
     display.setCursor(0,0);
     display.setTextSize(1);
@@ -88,5 +83,17 @@ void loop() {
     display.print("Temp: "); display.print(temp, 1); display.println(" C");
     display.print("Hum:  "); display.print(hum, 1);  display.println(" %");
     display.display();
+
+    // 2. Cálculo Dinámico de la Lectura en Sombra
+    // Guardamos el tiempo gastado directamente como long con signo
+    long tiempo_gastado = millis() - tiempo_actual; 
+    
+    // Casteamos la constante a long para permitir resultados matemáticos negativos
+    long tiempo_sombra = (long)INTERVALO_MUESTREO - tiempo_gastado - 10; 
+
+    if (tiempo_sombra > 0) {
+        bme.setGasHeater(200, tiempo_sombra);
+        bme.performReading(); 
+    }
+    }
   }
-}
