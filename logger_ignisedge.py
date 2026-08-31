@@ -51,6 +51,7 @@ def iniciar_logger():
                         # Escribimos en el archivo y forzamos el guardado en el disco
                         writer.writerow(fila_csv)
                         file.flush() 
+                        os.fsync(file.fileno())
                         
                         print(f"Guardado OK: {fila_csv}")
                     else:
