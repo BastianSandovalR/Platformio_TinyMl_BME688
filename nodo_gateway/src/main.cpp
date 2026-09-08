@@ -16,16 +16,12 @@
 Adafruit_SSD1306 display(128, 64, &Wire1, OLED_RST);
 SX1262 radio = new Module(LORA_NSS, LORA_DIO1, LORA_NRST, LORA_BUSY);
 
-// Bandera lógica para indicar que llegó un paquete por hardware
-volatile bool paqueteRecibido = false; // Se utiliza Volatile para que se refresque el valor asociado en cada iteracion, el bool se guarda en en cpu o en cache,
-                                      //en cambio en Volatile se guarda en ram lo que obligamos a que sea temporal, 
-                                      // porque asi obligamos a que se lea la memoria ram fisica en cada iteracion del loop
+// Bandera lógica de interrupción en RAM
+volatile bool paqueteRecibido = false; 
 
-
-ICACHE_RAM_ATTR void setFlag(void) { //Especificamos que este en la IRAM la cual vive en la SRAM...
-  paqueteRecibido = true;            //...la IRAM es una memoria super rapida especificamente para dar instrucciones
+ICACHE_RAM_ATTR void setFlag(void) { 
+  paqueteRecibido = true;            
 }
-
 
 void setup() {
   Serial.begin(115200);
@@ -41,57 +37,86 @@ void setup() {
   display.setTextColor(WHITE);
   display.setTextSize(1);
   display.setCursor(0,0);
-  display.println("GATEWAY ASINCRONO");
+  display.println("IGNISEDGE GATEWAY");
+  display.drawLine(0, 10, 128, 10, WHITE);
+  display.setCursor(0, 20);
+  display.println("Estado: Escuchando...");
   display.display();
 
-  // Inicializar radio LoRa a 915 MHz
+  // Inicializar radio LoRa
   int state = radio.begin(915.0);
   if (state == RADIOLIB_ERR_NONE) {
-    Serial.println("[*] Radio SX1262 inicializada con exito.");
+    Serial.println("{\"sistema\": \"Gateway_Iniciado\", \"status\": \"OK\"}");
   } else {
-    Serial.print("[!] Error inicializando radio, codigo: ");
-    Serial.println(state);
+    Serial.print("{\"sistema\": \"Gateway_Error\", \"codigo\": ");
+    Serial.print(state);
+    Serial.println("}");
     while (true);
   }
 
-  // Configurar la función que se ejecutará cuando DIO1 pase a HIGH (Paquete recibido)
-  radio.setPacketReceivedAction(setFlag); // simula un eventlistener, esta atento a como esta el estado de la recepcion del mensaje, si es true o false
+  // Configurar Interrupción
+  radio.setPacketReceivedAction(setFlag); 
 
-  // Iniciar la escucha asíncrona permanente (No bloquea el bucle loop)
+  // Iniciar escucha asíncrona
   state = radio.startReceive();
   if (state != RADIOLIB_ERR_NONE) {
-    Serial.println("[!] Error al iniciar el modo escucha.");
+    Serial.println("{\"sistema\": \"Error_Escucha\"}");
     while (true);
   }
 }
 
 void loop() {
-  // El loop corre libre. Solo entra aquí si el hardware activa la bandera
   if (paqueteRecibido) {
-    paqueteRecibido = false; // Reseteamos la bandera de interrupción
+    paqueteRecibido = false; 
 
     String str;
-    int state = radio.readData(str); // Leemos el buffer de la radio
-                                    // Calcula el CRC (control de Redundancia Ciclica) la libreria verifica mediante un algoritmo matematico 
-                                    //si los bytes llegaron bien o corruptos
-
+    int state = radio.readData(str); 
 
     if (state == RADIOLIB_ERR_NONE) {
-      // Enviamos directo a tu script de Python en Fedora
-      Serial.println(str); 
+      // 1. PARSEO DEL PAYLOAD LORA
+      // Formato esperado: NODO_ID,ALERTA,LeakyBucket,GasRes
+      int firstComma = str.indexOf(',');
+      int secondComma = str.indexOf(',', firstComma + 1);
+      int thirdComma = str.indexOf(',', secondComma + 1);
 
-      // Actualizamos la interfaz visual de la pantalla OLED
-      display.clearDisplay();
-      display.setCursor(0,0);
-      display.setTextSize(1);
-      display.println("! PAQUETE RECIBIDO !");
-      display.drawLine(0, 12, 128, 12, WHITE);
-      display.setCursor(0, 20);
-      display.println(str); 
-      display.display();
+      // 2. FILTRO DE SEGURIDAD (Validar que es un paquete IgnisEdge válido)
+      if (firstComma > 0 && secondComma > 0 && thirdComma > 0) {
+        String nodo_id = str.substring(0, firstComma);
+        String tipo_mensaje = str.substring(firstComma + 1, secondComma);
+        String bucket_val = str.substring(secondComma + 1, thirdComma);
+        String gas_val = str.substring(thirdComma + 1);
+
+        if (tipo_mensaje == "ALERTA") {
+          // 3. SALIDA JSON PARA BACKEND EN FEDORA LINUX
+          String jsonPayload = "{\"nodo\":\"" + nodo_id + "\", \"evento\":\"INCENDIO\", \"bucket\":" + bucket_val + ", \"gas_ohms\":" + gas_val + "}";
+          Serial.println(jsonPayload); 
+
+          // 4. ACTUALIZACIÓN DE INTERFAZ OLED DE EMERGENCIA
+          display.clearDisplay();
+          display.setCursor(0,0);
+          display.setTextSize(1);
+          display.println("!! EMERGENCIA !!");
+          display.drawLine(0, 10, 128, 10, WHITE);
+          //test
+          display.setCursor(0, 20);
+          display.print("Origen: "); display.println(nodo_id);
+          display.print("Bckt:   "); display.println(bucket_val);
+          display.print("Gas:    "); display.print(gas_val); display.println(" Ohm");
+          
+          // Invertir pantalla para efecto visual de alarma
+          display.invertDisplay(true);
+          display.display();
+          delay(500); // Pequeño parpadeo visual
+          display.invertDisplay(false);
+          display.display();
+        }
+      } else {
+        // Paquete basura o de otra red LoRa
+        Serial.println("{\"evento\": \"Paquete_Desconocido\", \"raw\": \"" + str + "\"}");
+      }
     }
-
-    // Volvemos a activar la escucha asíncrona para el siguiente paquete
+// test
+    // 5. REACTIVAR ANTENA
     radio.startReceive();
   }
 }
