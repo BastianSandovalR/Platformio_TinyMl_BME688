@@ -163,7 +163,7 @@ void loop() {
             }
 
             // 5. DECISIÓN DE TRANSMISIÓN LORA (Silencio hasta la alerta)
-            if (leaky_bucket >= 25.0) {
+            if (leaky_bucket >= 25.0) { // si necesitamos que sea mas quisiquilloso le bajamos ese parametro 
                 String payload = NODO_ID + ",ALERTA," + String(leaky_bucket, 1) + "," + String(gas_res, 0);
                 radio.transmit(payload);
                 Serial.println("¡ALERTA TRANSMITIDA!: " + payload);
